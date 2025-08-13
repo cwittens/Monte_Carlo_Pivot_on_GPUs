@@ -39,7 +39,7 @@ backend = CPU() # for CPU only
 
 # for small chain length, the computational overhead of the GPU can be too high
 # with dynamic=true, the backend will switch to CPU for small N when running the simulation
-global dynamic = true # use CPU backend for small N
+global dynamic = true
 
 # set a random seed for reproducibility
 Random.seed!(42)
@@ -289,7 +289,7 @@ begin
 
         step = 0
         # warm up 
-        while step < 10_000 # to have a warm up, do 1000 successful steps
+        while step < 10_000 # to have a warm up, do 10000 successful steps
             copyto!(try_chain, chain) # try_chain = chain
             is_valid = make_mc_step!(try_chain, index_map, backend)
 
@@ -325,6 +325,59 @@ begin
         return (chain_lengths, N_MC / counter_total) # return the chain lengths and the acceptance ratio
     end
 
+    function calculate_autocorrelation(backend, t_max, N_MC, N, dim3_bool, random_walk)
+        chain = create_initial_chain(N, dim3_bool, backend)
+        try_chain = similar(chain) # cache it already to reuse later
+        index_map = build_index_map(N, backend)
+
+
+
+        # do a MC Simulation and save the chain length after every successful step
+        chain_lengths = Float64[]
+        step = 0
+        total_steps = 0
+        warmup_steps = 10_000
+        while step < N_MC + warmup_steps
+            copyto!(try_chain, chain) # try_chain = chain
+            is_valid = make_mc_step!(try_chain, index_map, backend)
+            step += is_valid
+            total_steps += 1
+
+            # if random_walk is true, we always accept the new chain
+            if is_valid || random_walk # is a valid chain or we are in random walk mode
+                copyto!(chain, try_chain) # chain = try_chain
+                if step > warmup_steps # to have a warm up
+                    push!(chain_lengths, end_to_end_length2(chain))
+                end
+            end
+
+        end
+
+        # Autocorrelation calculation
+        N = length(chain_lengths)
+        mean_val = sum(Float64, chain_lengths) / N           # <x>
+        mean_squared = mean_val^2                            # <x>²  
+        squared_mean = sum(Float64, chain_lengths .^ 2) / N  # <x²>
+
+
+        ρ = zeros(Float64, t_max + 1) # normalized autocorrelation ρ(τ)
+        # Calculate normalized autocorrelation ρ(τ) for τ = 0,1,2,...,N
+        for τ in 0:t_max
+            # Calculate cross-product: <x(t+τ) * x(t)>
+            cross_product_sum = 0.0
+            valid_pairs = N - τ
+            for t in 1:valid_pairs
+                cross_product_sum += chain_lengths[t+τ] * chain_lengths[t]
+            end
+            cross_product_mean = cross_product_sum / (N - τ)
+
+            ρ_τ = (cross_product_mean - mean_squared) / (squared_mean - mean_squared)
+            ρ[τ+1] = ρ_τ
+        end
+
+        return ρ
+    end
+
 
     # for fitting the scaling law
 
@@ -354,66 +407,18 @@ end
 # calculate the autocorrelation
 ###################################################
 
-N_MC_acc_steps = 50_000
+N_MC = 50_000
 N = 200 # chain length
 dim3_bool = false
 random_walk = false
+t_max = 50
 
-chain = create_initial_chain(N, dim3_bool, backend)
-try_chain = similar(chain) # cache it already to reuse later
-index_map = build_index_map(N, backend)
-
-
-
-# do a MC Simulation and save the chain length after every successful step
-chain_lengths = Float64[]
-step = 0
-total_steps = 0
-warmup_steps = 10_000
-while step < N_MC_acc_steps + warmup_steps
-    copyto!(try_chain, chain) # try_chain = chain
-    is_valid = make_mc_step!(try_chain, index_map, backend)
-    step += is_valid
-    total_steps += 1
-
-    # if random_walk is true, we always accept the new chain
-    if is_valid || random_walk # is a valid chain or we are in random walk mode
-        copyto!(chain, try_chain) # chain = try_chain
-        if step > warmup_steps # to have a warm up
-            push!(chain_lengths, end_to_end_length2(chain))
-        end
-    end
-
-end
-
-println("Accepted Steps: $step, Total Steps: $total_steps")
-
-# Autocorrelation calculation
-N = length(chain_lengths)
-mean_val = sum(Float64, chain_lengths) / N           # <x>
-mean_squared = mean_val^2                            # <x>²  
-squared_mean = sum(Float64, chain_lengths .^ 2) / N  # <x²>
-
-τ_max = 50
-ρ = zeros(Float64, τ_max + 1) # normalized autocorrelation ρ(τ)
-# Calculate normalized autocorrelation ρ(τ) for τ = 0,1,2,...,N
-for τ in 0:τ_max
-    # Calculate cross-product: <x(t+τ) * x(t)>
-    cross_product_sum = 0.0
-    valid_pairs = N - τ
-    for t in 1:valid_pairs
-        cross_product_sum += chain_lengths[t+τ] * chain_lengths[t]
-    end
-    cross_product_mean = cross_product_sum / (N - τ)
-
-    ρ_τ = (cross_product_mean - mean_squared) / (squared_mean - mean_squared)
-    ρ[τ+1] = ρ_τ
-end
+ρ = calculate_autocorrelation(backend, t_max, N_MC, N, dim3_bool, random_walk)
 
 iact = 0.5 + sum(ρ[2:end])
-p_autocorr = plot(0:τ_max, ρ, title="Autocorrelation Plot with τ = $(round(iact, sigdigits=3))", xlabel="t", ylabel=L"\rho(t)", label=L"\rho(t)", legend=:topright, marker=:circle, line=:solid,)
+p_autocorr = plot(0:t_max, ρ, title="Autocorrelation Plot with τ = $(round(iact, sigdigits=3))", xlabel="t", ylabel=L"\rho(t)", label=L"\rho(t)", legend=:topright, marker=:circle, line=:solid,)
 
-savefig(p_autocorr, joinpath(plots_folder, "N_$(N_MC_acc_steps)_autocorrelation_plot.pdf"))
+savefig(p_autocorr, joinpath(plots_folder, "N_$(N_MC)_autocorrelation_plot.pdf"))
 
 
 
@@ -422,7 +427,7 @@ savefig(p_autocorr, joinpath(plots_folder, "N_$(N_MC_acc_steps)_autocorrelation_
 ###################################################
 
 # define chain lengths
-N_values = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200]#, 300, 400, 500, 700, 1000]
+N_values = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300, 400, 500, 700, 1000]
 N_MC = 50_000
 
 # define xticks for the plots
