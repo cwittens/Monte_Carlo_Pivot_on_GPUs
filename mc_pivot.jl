@@ -560,6 +560,7 @@ savefig(p4, joinpath(plots_folder, "N_$(N_MC)_3d_rw_plot$ending"))
 
 # define chain lengths
 N_values = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300, 400, 500, 700, 1000]
+N_values = [1500, 2000, 3000]
 N_MC = 50_000
 backend = CPU()
 # define xticks for the plots
@@ -577,5 +578,10 @@ for (i, N) in enumerate(N_values)
     println("time: $t for N = $N")
 end
 
-
+t
 xticks = (N_values[1:2:end], string.(N_values[1:2:end]))
+
+N_values_cpu = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300, 400, 500, 700, 1000, 1500, 2000, 3000]
+times_taken_cpu = [0.0590663,  0.0740183,  0.087285,  0.1175823,  0.170052,  2.9597303,  4.6022005,  3.0689833,  3.4386196,  4.5268568,  9.1015263, 32.2112287, 39.5853304, 64.7273629, 86.7821448, 287.0360242, 404.7689635, 943.7244535]
+
+plot(N_values_cpu, times_taken_cpu)
