@@ -39,7 +39,7 @@ backend = CPU() # for CPU only
 
 # for small chain length, the computational overhead of the GPU can be too high
 # with dynamic=true, the backend will switch to CPU for small N when running the simulation
-global dynamic = true
+global dynamic = false
 
 # set a random seed for reproducibility
 Random.seed!(42)
@@ -549,3 +549,33 @@ savefig(p1, joinpath(plots_folder, "N_$(N_MC)_2d_saw_plot$ending"))
 savefig(p2, joinpath(plots_folder, "N_$(N_MC)_2d_rw_plot$ending"))
 savefig(p3, joinpath(plots_folder, "N_$(N_MC)_3d_saw_plot$ending"))
 savefig(p4, joinpath(plots_folder, "N_$(N_MC)_3d_rw_plot$ending"))
+
+
+
+
+
+###################################################
+# Benchmarking
+###################################################
+
+# define chain lengths
+N_values = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300, 400, 500, 700, 1000]
+N_MC = 50_000
+backend = CPU()
+# define xticks for the plots
+
+
+# run ones for compilation
+simulation(backend, N_MC, 10; dim3_bool=false, random_walk=false)
+
+
+times_taken = zeros(Float64, length(N_values))
+
+for (i, N) in enumerate(N_values)
+    t = @elapsed simulation(backend, N_MC, N; dim3_bool=false, random_walk=false)
+    times_taken[i] = t
+    println("time: $t for N = $N")
+end
+
+
+xticks = (N_values[1:2:end], string.(N_values[1:2:end]))
