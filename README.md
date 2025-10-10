@@ -16,6 +16,12 @@ The pivot algorithm is a Monte Carlo method for simulating polymer chains. In ea
 - **Autocorrelation analysis**: Calculate integrated autocorrelation time
 - **GPU-accelerated collision detection**: Parallel validity checking for large chains
 
+## Benchmarking
+Performance comparison between H100 GPU and laptop CPU (i7-1185G7 @ 3.00GHz) for 50,000 MC steps across different chain lengths:
+
+<img width="600" height="450" alt="Benchmarking_Results" src="https://github.com/user-attachments/assets/615e8d8f-95a4-42ac-b954-3a82d61abe89" />
+
+
 ## Project Structure
 
 The main simulation code is contained in `mc_pivot.jl`. The project also includes:
