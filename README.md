@@ -21,6 +21,8 @@ Performance comparison between H100 GPU and laptop CPU (i7-1185G7 @ 3.00GHz) for
 
 <img width="600" height="450" alt="Benchmarking_Results" src="https://github.com/user-attachments/assets/615e8d8f-95a4-42ac-b954-3a82d61abe89" />
 
+The plot clearly shows GPU overhead dominating for small chains, but the advantage becomes significant for longer chains. For N=20,000, the H100 completes in under 15 minutes, while linear extrapolation of the CPU data suggests over 12 hours would be needed.
+Note: CPU timing fluctuations are due to concurrent laptop usage during benchmarking.
 
 ## Project Structure
 
